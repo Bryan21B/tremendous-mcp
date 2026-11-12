@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send rewards</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header>
+        <h1>Send rewards</h1>
+        <span id="draft" class="sub"></span>
+        <span id="env" class="env"></span>
+      </header>
+      <p id="loading" class="sub">Loading draft…</p>
+      <form id="form" hidden>
+        <div class="grid">
+          <label>Campaign / products<select id="campaign"></select></label>
+          <label>Paid by<select id="funding"></select></label>
+          <label>Delivery<select id="delivery">
+            <option value="EMAIL">Email</option><option value="PHONE">SMS</option><option value="LINK">Link (you deliver it)</option>
+          </select></label>
+          <label>Currency<input id="currency" placeholder="Org default" maxlength="3" /></label>
+        </div>
+        <details>
+          <summary class="sub">Message (optional)</summary>
+          <div class="grid" style="margin-top:8px">
+            <label>Sender name<input id="sender_name" /></label>
+            <label>Subject<input id="subject_line" /></label>
+            <label>Deliver on<input id="deliver_at" type="date" /></label>
+          </div>
+          <label class="sub" style="display:flex;flex-direction:column;gap:3px">Message<textarea id="message" rows="2" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea></label>
+        </details>
+        <div class="table-wrap" style="margin-top:10px"><table id="recipients"></table></div>
+        <button id="add" type="button" class="link">+ Add recipient</button>
+        <div id="problems"></div>
+        <div class="actions">
+          <span id="total" class="total"></span>
+          <button id="send" class="primary" type="submit">Send</button>
+        </div>
+      </form>
+      <div id="results" hidden>
+        <div id="summary" class="msg"></div>
+        <div class="table-wrap"><table id="result-table"></table></div>
+      </div>
+    </div>
+    <script type="module" src="./send.ts"></script>
+  </body>
+</html>

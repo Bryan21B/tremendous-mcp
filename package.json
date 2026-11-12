@@ -1,0 +1,50 @@
+{
+  "name": "tremendous-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server for the Tremendous rewards API: send rewards, see who received them, approve orders. Includes MCP Apps UI views.",
+  "type": "module",
+  "bin": {
+    "tremendous-mcp": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && VIEW=rewards vite build && VIEW=send vite build",
+    "build:ui": "VIEW=rewards vite build && VIEW=send vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "login": "tsc -p tsconfig.json && node build/login.js",
+    "start": "node build/index.js",
+    "smoke": "node build/smoke.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^2.0.4",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "proper-lockfile": "^4.1.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^26.6.6",
+    "@types/proper-lockfile": "^4.1.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bryan21B/tremendous-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-apps",
+    "tremendous",
+    "rewards",
+    "claude"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  }
+}

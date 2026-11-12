@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tremendous rewards</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="card">
+      <header>
+        <h1>Who received rewards</h1>
+        <span id="env" class="env"></span>
+      </header>
+      <p id="loading" class="sub">Loading…</p>
+      <div id="main" hidden>
+        <div class="stats">
+          <div class="stat"><b id="s-rewards">0</b><span>rewards</span></div>
+          <div class="stat"><b id="s-recipients">0</b><span>recipients</span></div>
+          <div class="stat"><b id="s-total">0</b><span>total value</span></div>
+          <div class="stat"><b id="s-failed">0</b><span>delivery failures</span></div>
+        </div>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search name or email" aria-label="Search name or email" />
+          <span id="chips"></span>
+          <span style="flex:1"></span>
+          <button id="mode" class="chip on" type="button">By recipient</button>
+        </div>
+        <div id="notice" class="msg" hidden></div>
+        <div class="table-wrap"><table id="table"></table></div>
+        <div class="foot">
+          <span id="scan"></span>
+          <button id="more" type="button" hidden>Load more</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./rewards.ts"></script>
+  </body>
+</html>
