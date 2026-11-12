@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Last gate before code leaves the machine. Pushes go straight to `main`,
+# and CI releases from there, so nothing red or secret should get this far.
+set -e
+
+node scripts/scan-secrets.mjs
+npm run check

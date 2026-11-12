@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# The subject type decides the version: a subject without a type makes no release.
+# See scripts/check-commit-msg.mjs.
+set -e
+
+node scripts/check-commit-msg.mjs "$1"

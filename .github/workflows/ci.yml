@@ -1,0 +1,90 @@
+name: CI
+
+# One pipeline. The checks guard the gate; tagging, writing the CHANGELOG and
+# creating the GitHub release happen downstream and never start if a check is red.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Compute the next version without tagging or releasing
+        type: boolean
+        default: false
+
+# On a PR, a new push cancels the previous run. On `main`, never: the release
+# job tags and pushes a commit, and cancelling it midway leaves a tag without a release.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint · types · tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint (Biome)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      # The build also bundles the MCP Apps views; a broken view fails here.
+      - name: Build
+        run: npm run build
+
+  # `needs: check` is the guarantee: no tag, CHANGELOG or release comes out of a red commit.
+  #
+  # semantic-release pushes a `chore(release): … [skip ci]` commit to `main`.
+  # It does not trigger a new run: GitHub starts no workflow for a push made
+  # with GITHUB_TOKEN. `[skip ci]` is the second barrier, for the day a PAT replaces it.
+  release:
+    name: Release
+    needs: [check]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag, CHANGELOG commit, GitHub release
+      issues: write # "released in x.y.z" comment on referenced issues
+      pull-requests: write # same, on merged PRs
+    steps:
+      # fetch-depth: 0 is required: semantic-release reads every commit and tag
+      # since the last release to decide the bump.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # The plugins are installed by the action, not declared as devDependencies,
+      # so the release cannot break `npm ci`.
+      - id: semantic
+        uses: cycjimmy/semantic-release-action@v5
+        with:
+          semantic_version: 24
+          dry_run: ${{ inputs.dry_run == true }}
+          extra_plugins: |
+            @semantic-release/changelog@6
+            @semantic-release/git@10
+            conventional-changelog-conventionalcommits@8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

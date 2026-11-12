@@ -118,21 +118,21 @@ Claude Desktop does not use your shell `PATH`. If it cannot find `op` or `node`,
 
 ## Tools
 
-| Tool | Type | What it does |
-|---|---|---|
-| `get_account` | read | Organization, environment, funding sources and balance |
-| `list_funding_sources` | read | Balance, cards, bank accounts, invoice |
-| `list_products` | read | Reward catalog. Filter by country, currency, name and category |
-| `list_campaigns`, `get_campaign` | read | Campaigns (reward templates) |
-| `list_orders`, `get_order` | read | Orders. Filter by date, campaign, `external_id` and status |
-| `get_reward` | read | One reward and its delivery status |
-| `list_rewards` | read + view | Who received rewards. Filter by email, name, dates, campaign and delivery status |
-| `review_rewards` | read + view | Check a batch and show the send form. This tool sends nothing |
-| `send_rewards` | **write** | Send rewards. Makes one order for each recipient |
-| `resend_reward` | **write** | Resend after a delivery failure |
-| `cancel_reward` | **write** | Cancel a reward that is not redeemed |
-| `generate_reward_link` | **write** | New redemption link (LINK rewards only). Anyone with the link can redeem the reward |
-| `approve_order`, `reject_order` | **write** | Orders in `PENDING APPROVAL`. Requires "Allow approvals via API" in Tremendous |
+| Tool                             | Type        | What it does                                                                        |
+| -------------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `get_account`                    | read        | Organization, environment, funding sources and balance                              |
+| `list_funding_sources`           | read        | Balance, cards, bank accounts, invoice                                              |
+| `list_products`                  | read        | Reward catalog. Filter by country, currency, name and category                      |
+| `list_campaigns`, `get_campaign` | read        | Campaigns (reward templates)                                                        |
+| `list_orders`, `get_order`       | read        | Orders. Filter by date, campaign, `external_id` and status                          |
+| `get_reward`                     | read        | One reward and its delivery status                                                  |
+| `list_rewards`                   | read + view | Who received rewards. Filter by email, name, dates, campaign and delivery status    |
+| `review_rewards`                 | read + view | Check a batch and show the send form. This tool sends nothing                       |
+| `send_rewards`                   | **write**   | Send rewards. Makes one order for each recipient                                    |
+| `resend_reward`                  | **write**   | Resend after a delivery failure                                                     |
+| `cancel_reward`                  | **write**   | Cancel a reward that is not redeemed                                                |
+| `generate_reward_link`           | **write**   | New redemption link (LINK rewards only). Anyone with the link can redeem the reward |
+| `approve_order`, `reject_order`  | **write**   | Orders in `PENDING APPROVAL`. Requires "Allow approvals via API" in Tremendous      |
 
 The typical flow to send rewards is `review_rewards`, then the user checks the draft, then `send_rewards` with the same `draft_id`.
 
@@ -154,13 +154,13 @@ All tools also return a text summary, for clients that do not show the views.
 
 ## Configuration
 
-| Variable | Default | Use |
-|---|---|---|
-| `TREMENDOUS_ENV` | `sandbox` | `sandbox` (testflight.tremendous.com) or `production` (api.tremendous.com) |
-| `TREMENDOUS_CLIENT_ID`, `TREMENDOUS_CLIENT_SECRET` | none | OAuth app credentials |
-| `TREMENDOUS_SCOPES` | `default` | OAuth scopes |
-| `TREMENDOUS_REDIRECT_URI` | `https://localhost:8787/callback` | Must be the same as the redirect URI of the app |
-| `TREMENDOUS_TOKEN_DIR` | `~/.config/tremendous-mcp` | Folder for the token files |
+| Variable                                           | Default                           | Use                                                                        |
+| -------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------- |
+| `TREMENDOUS_ENV`                                   | `sandbox`                         | `sandbox` (testflight.tremendous.com) or `production` (api.tremendous.com) |
+| `TREMENDOUS_CLIENT_ID`, `TREMENDOUS_CLIENT_SECRET` | none                              | OAuth app credentials                                                      |
+| `TREMENDOUS_SCOPES`                                | `default`                         | OAuth scopes                                                               |
+| `TREMENDOUS_REDIRECT_URI`                          | `https://localhost:8787/callback` | Must be the same as the redirect URI of the app                            |
+| `TREMENDOUS_TOKEN_DIR`                             | `~/.config/tremendous-mcp`        | Folder for the token files                                                 |
 
 ### Use production
 
@@ -180,13 +180,15 @@ The sandbox and production use different token files, so you can keep both.
 
 ## Development
 
-| Command | What it does |
-|---|---|
-| `npm run build` | Compile the server to `build/` and bundle each view into one HTML file in `dist/` |
-| `npm test` | Unit and contract tests with a fake Tremendous API (no network) |
-| `npm run typecheck` | Type-check the server and the views |
-| `npm run login` | Interactive OAuth login |
-| `npm run smoke -- <email> [campaign_id]` | Live test against the **sandbox** only: sends a 1.00 reward to `<email>` |
+| Command                                  | What it does                                                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `npm run build`                          | Compile the server to `build/` and bundle each view into one HTML file in `dist/` |
+| `npm test`                               | Unit and contract tests with a fake Tremendous API (no network)                   |
+| `npm run typecheck`                      | Type-check the server and the views                                               |
+| `npm run lint`                           | Biome lint and format check (`npm run lint:fix` fixes)                            |
+| `npm run check`                          | Lint, typecheck, tests and build (what CI and the pre-push hook run)              |
+| `npm run login`                          | Interactive OAuth login                                                           |
+| `npm run smoke -- <email> [campaign_id]` | Live test against the **sandbox** only: sends a 1.00 reward to `<email>`          |
 
 Project layout:
 
@@ -204,18 +206,30 @@ ui/                 MCP Apps views (plain TypeScript and CSS, bundled with Vite)
 test/               Vitest tests and a fake Tremendous API
 ```
 
-## Versioning
+## Releases and versioning
 
-This project uses [Semantic Versioning](https://semver.org). The version in `package.json` is the single source of truth. The server reports it to MCP clients, and the views use it too. [CHANGELOG.md](CHANGELOG.md) lists the changes in each version.
+This project uses [Semantic Versioning](https://semver.org). The version in `package.json` is the single source of truth. The server reports it to MCP clients, and the views use it too.
 
-The public interface is the tool names, their input fields and their results. Before 1.0.0, a minor version (0.x.0) can contain breaking changes. Patch versions (0.x.y) contain only fixes.
+Releases are automatic. On each push to `main`, CI runs the checks. If they pass, [semantic-release](https://semantic-release.gitbook.io) reads the commit messages since the last tag. It then sets the next version, updates `CHANGELOG.md` and `package.json`, tags `v<version>` and makes the GitHub release.
 
-To make a release:
+Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org). The type sets the version:
 
-1. Move the items under `[Unreleased]` in `CHANGELOG.md` to a new version section.
-2. Run `npm version <patch|minor|major>`. This command updates `package.json`, commits, and adds the tag `v<version>`.
-3. Run `git push --follow-tags`.
-4. Make a GitHub release from the tag, with the changelog section as the notes.
+| Commit type                                                        | Release                                |
+| ------------------------------------------------------------------ | -------------------------------------- |
+| `feat:`                                                            | minor (0.**x**.0)                      |
+| `fix:`, `perf:`                                                    | patch (0.x.**y**)                      |
+| `feat!:` or a `BREAKING CHANGE:` footer                            | minor while the version is below 1.0.0 |
+| `docs:`, `test:`, `chore:`, `ci:`, `refactor:`, `style:`, `build:` | no release                             |
+
+The public interface is the tool names, their input fields and their results. A change that breaks it is a breaking change.
+
+### Git hooks
+
+`npm install` installs these hooks (husky):
+
+- **commit-msg**: rejects a subject that is not a Conventional Commit.
+- **pre-commit**: Biome on the staged files, then the typecheck.
+- **pre-push**: a secret scan of the commits to push, then `npm run check` (lint, typecheck, tests, build).
 
 ## License
 

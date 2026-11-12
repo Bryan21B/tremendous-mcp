@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Fast checks on every commit, whoever makes it (you, a contributor or an agent).
+set -e
+
+npx lint-staged
+npm run typecheck

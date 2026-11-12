@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["**", "!**/node_modules", "!**/build", "!**/dist", "!CHANGELOG.md"] },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "domains": { "project": "recommended" },
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": { "level": "error", "options": { "allow": [] } },
+        "noDoubleEquals": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useConst": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "noParameterAssign": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "warn", "options": { "maxAllowedComplexity": 15 } }
+      },
+      "correctness": { "noUnusedVariables": "error", "noUnusedImports": "error" },
+      "nursery": { "noFloatingPromises": "error", "noMisusedPromises": "error" }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.config.{ts,mts,js,mjs}", "**/scripts/**", "src/login.ts", "src/smoke.ts"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    },
+    {
+      "includes": ["**/test/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "off", "noExplicitAny": "off" },
+          "style": { "noNonNullAssertion": "off" }
+        }
+      }
+    }
+  ]
+}
