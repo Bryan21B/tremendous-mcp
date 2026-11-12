@@ -65,9 +65,10 @@ op run --env-file=.env.op -- npm run login
 The login opens your browser:
 
 1. Log in to Tremendous and allow access.
-2. The browser goes to `https://localhost:8787/callback` and shows a "can't connect" page. This is expected: the authorization code is in the address bar.
-3. Copy the full address (Cmd+L, Cmd+C on macOS).
-4. Go back to the terminal and press Enter. The script reads the address from the clipboard. You can also paste the address, then press Enter.
+2. Tremendous sends the browser to `https://localhost:8787/callback`. The script listens there with a self-signed certificate (it makes one with `openssl` the first time, in `~/.config/tremendous-mcp/tls/`). The browser warns that the connection is not private: click **Advanced**, then **Proceed to localhost**.
+3. The page says "Code received", and the script continues by itself.
+
+If that does not work (for example, `openssl` is not installed), copy the callback address, which starts with `https://localhost:8787/callback?code=`, go back to the terminal and press Enter. The script reads the address from the clipboard, or you can paste it. Chrome can keep the Tremendous address in the address bar when the redirect fails. In that case, find the callback address in `chrome://history`.
 
 The script then shows "Connected to: <your organization>".
 

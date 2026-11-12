@@ -1,15 +1,22 @@
 // One-time Tremendous login (OAuth 2.0 authorization code).
 // Usage: op run --env-file=.env.op -- npm run login
 //
-// Tremendous only accepts https redirect URIs, so there is no local callback
-// server. After you allow access, the browser goes to the redirect URI
-// (https://localhost:8787/callback by default) and shows an error page because
-// nothing listens there. That is expected: the code is in the address bar.
-// Copy the address, come back, press Enter: the script reads the clipboard.
+// Tremendous only accepts https redirect URIs. When the redirect URI is
+// https://localhost:<port>/..., the script listens there with a self-signed
+// certificate (made once with openssl). The browser warns that the connection
+// is not private; continue to localhost and the script gets the code itself.
+//
+// Fallback: copy the callback address (it has ?code=...) and press Enter; the
+// script reads the clipboard. Chrome can keep the authorize address in the
+// address bar when the redirect fails: find the callback in chrome://history.
+//
 // The tokens go to ~/.config/tremendous-mcp/tokens.<env>.json (0600). No token is printed.
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createServer, type Server } from "node:https";
+import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { loadConfig, readClientCredentials } from "./config.js";
 import { makeTokenRequester, TokenStore } from "./token-store.js";
@@ -72,30 +79,134 @@ if (!process.stdin.isTTY) {
   }
   code = r.code;
 } else {
+  const ac = new AbortController();
+  const listener = startCallbackServer((c) => ac.abort(c));
   console.log("1. Your browser opens the Tremendous login. Log in and allow access.");
-  console.log(`2. The browser then shows an error page on ${new URL(config.redirectUri).host}. This is expected.`);
-  console.log(`   Its address starts with ${redirectBase}?code=...`);
-  console.log("3. Copy that full address from the address bar (Cmd+L, Cmd+C).");
-  console.log("4. Come back here and press Enter. (Or paste the address, then press Enter.)\n");
+  if (listener) {
+    console.log("2. The browser then warns that the connection to localhost is not private.");
+    console.log("   Click Advanced, then Proceed to localhost. This script then gets the code by itself.");
+    console.log(`3. If that does not work, copy the address that starts with ${redirectBase}?code=...`);
+    console.log("   (Chrome: find it in chrome://history) and press Enter here.\n");
+  } else {
+    console.log(`2. The browser then shows an error page on ${new URL(config.redirectUri).host}. This is expected.`);
+    console.log(`3. Copy the address that starts with ${redirectBase}?code=... If the address bar does not show it,`);
+    console.log("   find it in your browser history (Chrome: chrome://history). Then press Enter here.\n");
+  }
   spawnSync("open", [auth.toString()]);
   console.log(`If the browser did not open, go to:\n${auth}\n`);
+  code = await promptForCode(ac.signal);
+  listener?.close();
+}
+
+/** Ask for the callback address until it is valid, or until the signal carries a code from the listener. */
+async function promptForCode(signal: AbortSignal): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  for (;;) {
-    const typed = (await rl.question("Press Enter after you copied the address (or type q to quit)... ")).trim();
-    if (typed === "q") process.exit(1);
-    const r = parseCallback(typed || spawnSync("pbpaste", { encoding: "utf8" }).stdout.trim());
-    if ("code" in r) {
-      code = r.code;
-      break;
+  try {
+    for (;;) {
+      let typed: string;
+      try {
+        typed = (
+          await rl.question("Waiting for the browser, or press Enter after you copied the address (q to quit)... ", {
+            signal,
+          })
+        ).trim();
+      } catch {
+        console.log("\nReceived the code from the browser.");
+        return signal.reason as string;
+      }
+      if (typed === "q") process.exit(1);
+      const r = parseCallback(typed || spawnSync("pbpaste", { encoding: "utf8" }).stdout.trim());
+      if ("code" in r) return r.code;
+      console.error(`\n${r.problem}\n`);
+      if (r.fatal) process.exit(1);
     }
-    console.error(`\n${r.problem}\n`);
-    if (r.fatal) process.exit(1);
+  } finally {
+    rl.close();
   }
-  rl.close();
+}
+
+/**
+ * Listen on the https://localhost redirect URI with a self-signed certificate.
+ * Returns null when the redirect URI is not local https, or when openssl is missing.
+ */
+function startCallbackServer(onCode: (code: string) => void): Server | null {
+  const uri = new URL(config.redirectUri);
+  if (uri.protocol !== "https:" || !["localhost", "127.0.0.1"].includes(uri.hostname)) return null;
+  const tls = localCertificate();
+  if (!tls) return null;
+  const page = (title: string, text: string) =>
+    `<!doctype html><meta charset="utf-8"><title>${title}</title><body style="font-family:system-ui;padding:2rem"><h1 style="font-size:1.2rem">${title}</h1><p>${text}</p></body>`;
+  const server = createServer(tls, (req, res) => {
+    const url = new URL(req.url ?? "/", config.redirectUri);
+    if (url.pathname !== uri.pathname) {
+      res.writeHead(404).end();
+      return;
+    }
+    const r = parseCallback(url.toString());
+    if ("code" in r) {
+      res
+        .writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+        .end(page("Code received", "Go back to the terminal to finish the login. You can close this tab."));
+      onCode(r.code);
+    } else {
+      res
+        .writeHead(400, { "Content-Type": "text/html; charset=utf-8" })
+        .end(page("Login failed", r.problem.replace(/</g, "&lt;")));
+      console.error(`\n${r.problem}`);
+      if (r.fatal) process.exit(1);
+    }
+  });
+  server.on("error", (e) =>
+    console.error(`\nCannot listen on ${uri.host} (${(e as Error).message}). Copy the address instead.`),
+  );
+  server.listen(Number(uri.port || 443), uri.hostname === "localhost" ? "127.0.0.1" : uri.hostname);
+  return server;
+}
+
+/** Self-signed certificate for localhost, made once with openssl and kept next to the tokens. */
+function localCertificate(): { key: Buffer; cert: Buffer } | null {
+  const dir = join(dirname(config.tokenFile), "tls");
+  const key = join(dir, "localhost-key.pem");
+  const cert = join(dir, "localhost-cert.pem");
+  if (!existsSync(key) || !existsSync(cert)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const r = spawnSync(
+      "openssl",
+      [
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-keyout",
+        key,
+        "-out",
+        cert,
+        "-days",
+        "3650",
+        "-subj",
+        "/CN=localhost",
+        "-addext",
+        "subjectAltName=DNS:localhost,IP:127.0.0.1",
+      ],
+      { stdio: "ignore" },
+    );
+    if (r.status !== 0) return null;
+  }
+  return { key: readFileSync(key), cert: readFileSync(cert) };
 }
 
 console.log("Exchanging the code with Tremendous...");
-const tokens = await requestToken({ grant_type: "authorization_code", code, redirect_uri: config.redirectUri });
+let tokens: Awaited<ReturnType<typeof requestToken>>;
+try {
+  tokens = await requestToken({ grant_type: "authorization_code", code, redirect_uri: config.redirectUri });
+} catch (e) {
+  console.error(`Tremendous refused the code: ${(e as Error).message}`);
+  console.error(
+    "Check the client ID and secret, and that the redirect URI matches the app exactly. Codes expire after a few minutes: run the login again.",
+  );
+  process.exit(1);
+}
 await store.save(tokens);
 console.log(
   `Saved tokens to ${config.tokenFile} (access token expires in ${tokens.expires_in || "?"}s, scope: ${tokens.scope ?? config.scopes}).`,
