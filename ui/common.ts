@@ -1,3 +1,5 @@
+declare const __APP_VERSION__: string;
+
 import { App, applyDocumentTheme, applyHostStyleVariables } from "@modelcontextprotocol/ext-apps";
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -15,7 +17,7 @@ export const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString
 
 /** Create the App, wire theming, and connect. Register handlers on the returned app BEFORE awaiting `connect`. */
 export function createApp(name: string) {
-  const app = new App({ name, version: "0.1.0" });
+  const app = new App({ name, version: __APP_VERSION__ });
   app.onhostcontextchanged = (ctx) => {
     if (ctx.theme) applyDocumentTheme(ctx.theme);
     if (ctx.styles?.variables) applyHostStyleVariables(ctx.styles.variables);

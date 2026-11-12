@@ -1,10 +1,14 @@
 // Non-secret settings. The environment defaults to the Tremendous sandbox
 // (testflight). Set TREMENDOUS_ENV=production to move real money.
 import { homedir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /** Repository root (one level above build/ or src/). Used in setup hints. */
 export const PROJECT_DIR = resolve(import.meta.dirname, "..");
+
+/** Package version (semver). package.json is the single source of truth. */
+export const VERSION: string = JSON.parse(readFileSync(join(PROJECT_DIR, "package.json"), "utf8")).version;
 
 export type TremendousEnv = "sandbox" | "production";
 

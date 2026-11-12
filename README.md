@@ -204,6 +204,19 @@ ui/                 MCP Apps views (plain TypeScript and CSS, bundled with Vite)
 test/               Vitest tests and a fake Tremendous API
 ```
 
+## Versioning
+
+This project uses [Semantic Versioning](https://semver.org). The version in `package.json` is the single source of truth. The server reports it to MCP clients, and the views use it too. [CHANGELOG.md](CHANGELOG.md) lists the changes in each version.
+
+The public interface is the tool names, their input fields and their results. Before 1.0.0, a minor version (0.x.0) can contain breaking changes. Patch versions (0.x.y) contain only fixes.
+
+To make a release:
+
+1. Move the items under `[Unreleased]` in `CHANGELOG.md` to a new version section.
+2. Run `npm version <patch|minor|major>`. This command updates `package.json`, commits, and adds the tag `v<version>`.
+3. Run `git push --follow-tags`.
+4. Make a GitHub release from the tag, with the changelog section as the notes.
+
 ## License
 
 [MIT](LICENSE)

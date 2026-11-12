@@ -1,6 +1,7 @@
 // Drives the real MCP server through an MCP client over an in-memory transport,
 // with the Tremendous API faked. Checks the tool surface, annotations, the UI
 // resources, and the send flow (idempotency, partial failure, 402 stop).
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createServer } from "../src/server.js";
@@ -27,6 +28,14 @@ const draft = {
 };
 
 describe("tool surface", () => {
+  it("reports the package.json version (semver)", async () => {
+    const { client } = await connect();
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
+    expect(client.getServerVersion()?.version).toBe(pkg.version);
+  });
+
+
   it("lists every tool with the right safety annotations", async () => {
     const { client } = await connect();
     const { tools } = await client.listTools();

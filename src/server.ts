@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/ext-apps/server";
-import { PROJECT_DIR } from "./config.js";
+import { PROJECT_DIR, VERSION } from "./config.js";
 import { REWARDS_VIEW, SEND_VIEW, type Ctx } from "./context.js";
 import { registerReadTools } from "./tools/read.js";
 import { registerWriteTools } from "./tools/write.js";
@@ -20,7 +20,7 @@ async function readView(file: string): Promise<string> {
 
 export function createServer(ctx: Ctx): McpServer {
   const server = new McpServer(
-    { name: "tremendous", version: "0.1.0" },
+    { name: "tremendous", version: VERSION },
     {
       instructions:
         `Tremendous rewards (${ctx.config.env === "production" ? "PRODUCTION: real money" : "SANDBOX: fake money"}). ` +
