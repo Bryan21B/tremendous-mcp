@@ -32,48 +32,66 @@ auth.search = new URLSearchParams({
 console.log(`Environment: ${config.env.toUpperCase()} (${config.host})`);
 console.log(`Redirect URI (must be registered in the Tremendous app): ${config.redirectUri}\n`);
 
-let pasted: string;
+const redirectBase = config.redirectUri.split("?")[0];
+
+/** Checks a callback address. Returns the code, or why the address is not usable. */
+function parseCallback(address: string): { code: string } | { problem: string; fatal?: boolean } {
+  if (!address) return { problem: "The clipboard is empty." };
+  if (address.includes("/oauth/authorize")) {
+    return {
+      problem:
+        "This is the Tremendous login address, not the callback. Finish the login and click Allow/Authorize first. " +
+        `The browser must end on ${redirectBase}?code=...`,
+    };
+  }
+  if (!address.startsWith(redirectBase)) {
+    return { problem: `The address does not start with ${redirectBase}. Copy the address of the error page.` };
+  }
+  const back = new URL(address);
+  if (back.searchParams.get("error")) {
+    const reason = `${back.searchParams.get("error")} ${back.searchParams.get("error_description") ?? ""}`.trim();
+    return { problem: `Tremendous returned an error: ${reason}`, fatal: true };
+  }
+  if (back.searchParams.get("state") !== state) {
+    return { problem: "The state value does not match: this address comes from an older login attempt." };
+  }
+  const code = back.searchParams.get("code");
+  return code ? { code } : { problem: "The address has no code." };
+}
+
+let code: string;
 if (!process.stdin.isTTY) {
   // Non-interactive: print the address, read the callback address from stdin.
   console.log(`AUTHORIZE_URL ${auth}`);
   const rl = createInterface({ input: process.stdin });
-  pasted = (await new Promise<string>((res) => rl.once("line", res))).trim();
+  const r = parseCallback((await new Promise<string>((res) => rl.once("line", res))).trim());
   rl.close();
+  if (!("code" in r)) {
+    console.error(r.problem);
+    process.exit(1);
+  }
+  code = r.code;
 } else {
   console.log("1. Your browser opens the Tremendous login. Log in and allow access.");
   console.log(`2. The browser then shows an error page on ${new URL(config.redirectUri).host}. This is expected.`);
-  console.log("3. Copy the full address from the address bar (Cmd+L, Cmd+C).");
+  console.log(`   Its address starts with ${redirectBase}?code=...`);
+  console.log("3. Copy that full address from the address bar (Cmd+L, Cmd+C).");
   console.log("4. Come back here and press Enter. (Or paste the address, then press Enter.)\n");
   spawnSync("open", [auth.toString()]);
   console.log(`If the browser did not open, go to:\n${auth}\n`);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const typed = (await rl.question("Press Enter after you copied the address... ")).trim();
+  for (;;) {
+    const typed = (await rl.question("Press Enter after you copied the address (or type q to quit)... ")).trim();
+    if (typed === "q") process.exit(1);
+    const r = parseCallback(typed || spawnSync("pbpaste", { encoding: "utf8" }).stdout.trim());
+    if ("code" in r) {
+      code = r.code;
+      break;
+    }
+    console.error(`\n${r.problem}\n`);
+    if (r.fatal) process.exit(1);
+  }
   rl.close();
-  pasted = typed || spawnSync("pbpaste", { encoding: "utf8" }).stdout.trim();
-}
-
-const redirectBase = config.redirectUri.split("?")[0];
-if (!pasted.startsWith(redirectBase)) {
-  console.error(
-    `The address does not start with ${redirectBase}. Run \`npm run login\` again and copy the address of the error page.`,
-  );
-  process.exit(1);
-}
-const back = new URL(pasted);
-if (back.searchParams.get("error")) {
-  console.error(
-    `Tremendous returned an error: ${back.searchParams.get("error")} ${back.searchParams.get("error_description") ?? ""}`,
-  );
-  process.exit(1);
-}
-if (back.searchParams.get("state") !== state) {
-  console.error("The state value does not match. Run `npm run login` again and copy the newest address.");
-  process.exit(1);
-}
-const code = back.searchParams.get("code");
-if (!code) {
-  console.error("The address has no code.");
-  process.exit(1);
 }
 
 console.log("Exchanging the code with Tremendous...");
