@@ -4,3 +4,5 @@ dist/
 .env
 *.secret.*
 .env.op
+.env.op.*
+!.env.op.example
