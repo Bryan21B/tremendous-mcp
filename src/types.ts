@@ -1,6 +1,13 @@
 // Tremendous API shapes we read. Only the fields we use; the API returns more.
-export interface Recipient { name?: string | null; email?: string | null; phone?: string | null }
-export interface Money { denomination: number; currency_code?: string }
+export interface Recipient {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+export interface Money {
+  denomination: number;
+  currency_code?: string;
+}
 export type DeliveryStatus = "SCHEDULED" | "FAILED" | "SUCCEEDED" | "PENDING";
 export type DeliveryMethod = "EMAIL" | "LINK" | "PHONE";
 
@@ -17,8 +24,13 @@ export interface Reward {
 }
 
 export type OrderStatus =
-  | "CANCELED" | "OPEN" | "EXECUTED" | "FAILED"
-  | "PENDING APPROVAL" | "PENDING INTERNAL PAYMENT APPROVAL" | "PENDING SETTLEMENT";
+  | "CANCELED"
+  | "OPEN"
+  | "EXECUTED"
+  | "FAILED"
+  | "PENDING APPROVAL"
+  | "PENDING INTERNAL PAYMENT APPROVAL"
+  | "PENDING SETTLEMENT";
 
 export interface Order {
   id: string;

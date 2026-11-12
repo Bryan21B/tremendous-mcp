@@ -1,10 +1,10 @@
 // Builds the MCP server: tools + the two MCP Apps UI resources.
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { McpServer } from "@modelcontextprotocol/server";
 import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/ext-apps/server";
+import { McpServer } from "@modelcontextprotocol/server";
 import { PROJECT_DIR, VERSION } from "./config.js";
-import { REWARDS_VIEW, SEND_VIEW, type Ctx } from "./context.js";
+import { type Ctx, REWARDS_VIEW, SEND_VIEW } from "./context.js";
 import { registerReadTools } from "./tools/read.js";
 import { registerWriteTools } from "./tools/write.js";
 

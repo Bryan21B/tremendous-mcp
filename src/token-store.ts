@@ -8,7 +8,7 @@
 //   - inside the lock we re-read the file (another process may have refreshed),
 //   - the new tokens are written (atomically) before they are used,
 //   - in one process, concurrent callers share a single refresh promise.
-import { mkdir, readFile, rename, writeFile, chmod } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import lockfile from "proper-lockfile";
 import { PROJECT_DIR } from "./config.js";

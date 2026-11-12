@@ -1,10 +1,11 @@
 // Read-only tools. They never move money.
-import type { McpServer } from "@modelcontextprotocol/server";
+
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { type Ctx, REWARDS_VIEW, SEND_VIEW, envLabel, fmtTotals, guard, money, result } from "../context.js";
+import { type Ctx, envLabel, fmtTotals, guard, money, REWARDS_VIEW, result, SEND_VIEW } from "../context.js";
 import { DEFAULT_MAX_SCAN, queryRewards } from "../rewards-query.js";
-import { DeliveryStatus, RewardDraftInput, draftTotal, validateDraft } from "../schemas.js";
+import { DeliveryStatus, draftTotal, RewardDraftInput, validateDraft } from "../schemas.js";
 import type { Order, Reward } from "../types.js";
 
 const RO = { readOnlyHint: true, openWorldHint: true } as const;
@@ -18,7 +19,12 @@ interface FundingSource {
   usage_permissions?: string[];
   meta?: { available_amount?: number; pending_amount?: number; currency_code?: string; [k: string]: unknown };
 }
-interface Campaign { id: string; name: string; description?: string; products?: string[] }
+interface Campaign {
+  id: string;
+  name: string;
+  description?: string;
+  products?: string[];
+}
 interface Product {
   id: string;
   name: string;
@@ -61,7 +67,9 @@ export async function fetchCampaigns(ctx: Ctx): Promise<Campaign[]> {
 }
 
 function rewardLine(r: Reward) {
-  const who = r.recipient?.name ? `${r.recipient.name} <${r.recipient.email ?? r.recipient.phone ?? "?"}>` : (r.recipient?.email ?? r.recipient?.phone ?? "?");
+  const who = r.recipient?.name
+    ? `${r.recipient.name} <${r.recipient.email ?? r.recipient.phone ?? "?"}>`
+    : (r.recipient?.email ?? r.recipient?.phone ?? "?");
   return `${r.id} · ${who} · ${money(r.value?.denomination, r.value?.currency_code)} · ${r.delivery?.method ?? "?"}/${r.delivery?.status ?? "?"} · ${r.created_at?.slice(0, 10) ?? ""}`;
 }
 
@@ -75,44 +83,57 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
     "get_account",
     {
       title: "Tremendous account",
-      description: "Show the connected Tremendous organization, the environment (SANDBOX or PRODUCTION) and the funding sources with their balances. Call this first to know which account you act on.",
+      description:
+        "Show the connected Tremendous organization, the environment (SANDBOX or PRODUCTION) and the funding sources with their balances. Call this first to know which account you act on.",
       inputSchema: z.object({}),
       annotations: RO,
     },
-    () => guard(async () => {
-      const [orgs, funding] = await Promise.all([
-        ctx.client.get<{ organizations: { id: string; name: string; website?: string; status?: string }[] }>("/organizations"),
-        fetchFundingSources(ctx),
-      ]);
-      const text = [
-        `Environment: ${envLabel(ctx)}`,
-        `Organizations: ${orgs.organizations.map((o) => `${o.name} (${o.id})`).join(", ") || "none"}`,
-        "Funding sources:",
-        ...funding.map((f) => `- ${f.id}: ${f.label}`),
-      ].join("\n");
-      return result(text, { environment: envLabel(ctx), organizations: orgs.organizations, funding_sources: funding });
-    }),
+    () =>
+      guard(async () => {
+        const [orgs, funding] = await Promise.all([
+          ctx.client.get<{ organizations: { id: string; name: string; website?: string; status?: string }[] }>(
+            "/organizations",
+          ),
+          fetchFundingSources(ctx),
+        ]);
+        const text = [
+          `Environment: ${envLabel(ctx)}`,
+          `Organizations: ${orgs.organizations.map((o) => `${o.name} (${o.id})`).join(", ") || "none"}`,
+          "Funding sources:",
+          ...funding.map((f) => `- ${f.id}: ${f.label}`),
+        ].join("\n");
+        return result(text, {
+          environment: envLabel(ctx),
+          organizations: orgs.organizations,
+          funding_sources: funding,
+        });
+      }),
   );
 
   server.registerTool(
     "list_funding_sources",
     {
       title: "List funding sources",
-      description: "List the funding sources (balance, card, bank, invoice) that can pay for rewards. Balances in this list can be a little stale.",
+      description:
+        "List the funding sources (balance, card, bank, invoice) that can pay for rewards. Balances in this list can be a little stale.",
       inputSchema: z.object({}),
       annotations: RO,
     },
-    () => guard(async () => {
-      const funding = await fetchFundingSources(ctx);
-      return result(funding.map((f) => `${f.id}: ${f.label}`).join("\n") || "No funding sources.", { funding_sources: funding });
-    }),
+    () =>
+      guard(async () => {
+        const funding = await fetchFundingSources(ctx);
+        return result(funding.map((f) => `${f.id}: ${f.label}`).join("\n") || "No funding sources.", {
+          funding_sources: funding,
+        });
+      }),
   );
 
   server.registerTool(
     "list_products",
     {
       title: "List reward products",
-      description: "List the reward products (gift cards, PayPal, Visa, charity, ...) in the catalog. Filter by country/currency and by a name search. Use product IDs in send_rewards.products.",
+      description:
+        "List the reward products (gift cards, PayPal, Visa, charity, ...) in the catalog. Filter by country/currency and by a name search. Use product IDs in send_rewards.products.",
       inputSchema: z.object({
         country: z.string().optional().describe("Comma-separated ISO alpha-2 codes, e.g. FR,DE"),
         currency: z.string().optional().describe("Comma-separated currency codes, e.g. EUR"),
@@ -122,38 +143,42 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
       }),
       annotations: RO,
     },
-    ({ country, currency, search, category, limit }) => guard(async () => {
-      const { products } = await ctx.client.get<{ products: Product[] }>("/products", { country, currency });
-      const filtered = products
-        .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
-        .filter((p) => !category || p.category === category);
-      const rows = filtered.slice(0, limit).map((p) => ({
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        subcategory: p.subcategory,
-        currencies: p.currency_codes,
-        countries: p.countries.map((c) => c.abbr),
-        skus: p.skus,
-      }));
-      const text = `${filtered.length} product(s)${filtered.length > limit ? `, showing ${limit}` : ""}:\n` +
-        rows.map((p) => `${p.id} · ${p.name} · ${p.category} · ${p.currencies.join("/")}`).join("\n");
-      return result(text, { total: filtered.length, products: rows });
-    }),
+    ({ country, currency, search, category, limit }) =>
+      guard(async () => {
+        const { products } = await ctx.client.get<{ products: Product[] }>("/products", { country, currency });
+        const filtered = products
+          .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+          .filter((p) => !category || p.category === category);
+        const rows = filtered.slice(0, limit).map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          subcategory: p.subcategory,
+          currencies: p.currency_codes,
+          countries: p.countries.map((c) => c.abbr),
+          skus: p.skus,
+        }));
+        const text =
+          `${filtered.length} product(s)${filtered.length > limit ? `, showing ${limit}` : ""}:\n` +
+          rows.map((p) => `${p.id} · ${p.name} · ${p.category} · ${p.currencies.join("/")}`).join("\n");
+        return result(text, { total: filtered.length, products: rows });
+      }),
   );
 
   server.registerTool(
     "list_campaigns",
     {
       title: "List campaigns",
-      description: "List Tremendous campaigns (reward templates with products, message and branding). Use a campaign_id in send_rewards.",
+      description:
+        "List Tremendous campaigns (reward templates with products, message and branding). Use a campaign_id in send_rewards.",
       inputSchema: z.object({}),
       annotations: RO,
     },
-    () => guard(async () => {
-      const campaigns = await fetchCampaigns(ctx);
-      return result(campaigns.map((c) => `${c.id} · ${c.name}`).join("\n") || "No campaigns.", { campaigns });
-    }),
+    () =>
+      guard(async () => {
+        const campaigns = await fetchCampaigns(ctx);
+        return result(campaigns.map((c) => `${c.id} · ${c.name}`).join("\n") || "No campaigns.", { campaigns });
+      }),
   );
 
   server.registerTool(
@@ -164,37 +189,59 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
       inputSchema: z.object({ id: z.string() }),
       annotations: RO,
     },
-    ({ id }) => guard(async () => {
-      const { campaign } = await ctx.client.get<{ campaign: Record<string, unknown> }>(`/campaigns/${encodeURIComponent(id)}`);
-      return result(JSON.stringify(campaign, null, 2), { campaign });
-    }),
+    ({ id }) =>
+      guard(async () => {
+        const { campaign } = await ctx.client.get<{ campaign: Record<string, unknown> }>(
+          `/campaigns/${encodeURIComponent(id)}`,
+        );
+        return result(JSON.stringify(campaign, null, 2), { campaign });
+      }),
   );
 
   server.registerTool(
     "list_orders",
     {
       title: "List orders",
-      description: "List orders, newest first. Filter by creation date range, campaign, external_id, or status (for example PENDING APPROVAL to find orders that wait for approval).",
+      description:
+        "List orders, newest first. Filter by creation date range, campaign, external_id, or status (for example PENDING APPROVAL to find orders that wait for approval).",
       inputSchema: z.object({
         since: z.string().optional().describe("ISO 8601 date or datetime, inclusive"),
         until: z.string().optional().describe("ISO 8601 date or datetime, inclusive"),
         campaign_id: z.string().optional(),
         external_id: z.string().optional(),
-        status: z.enum(["CANCELED", "OPEN", "EXECUTED", "FAILED", "PENDING APPROVAL", "PENDING INTERNAL PAYMENT APPROVAL", "PENDING SETTLEMENT"]).optional()
+        status: z
+          .enum([
+            "CANCELED",
+            "OPEN",
+            "EXECUTED",
+            "FAILED",
+            "PENDING APPROVAL",
+            "PENDING INTERNAL PAYMENT APPROVAL",
+            "PENDING SETTLEMENT",
+          ])
+          .optional()
           .describe("Filtered after fetching: the API has no status filter, so up to `limit` orders are scanned."),
         limit: z.number().int().min(1).max(500).default(50),
         offset: z.number().int().min(0).default(0),
       }),
       annotations: RO,
     },
-    ({ since, until, campaign_id, external_id, status, limit, offset }) => guard(async () => {
-      const res = await ctx.client.get<{ orders: Order[]; total_count: number }>("/orders", {
-        offset, limit, campaign_id, external_id, "created_at[gte]": since, "created_at[lte]": until,
-      });
-      const orders = status ? res.orders.filter((o) => o.status === status) : res.orders;
-      const text = `${orders.length} order(s) (of ${res.total_count} matching the date/campaign filters):\n` + orders.map(orderLine).join("\n");
-      return result(text, { total_count: res.total_count, orders });
-    }),
+    ({ since, until, campaign_id, external_id, status, limit, offset }) =>
+      guard(async () => {
+        const res = await ctx.client.get<{ orders: Order[]; total_count: number }>("/orders", {
+          offset,
+          limit,
+          campaign_id,
+          external_id,
+          "created_at[gte]": since,
+          "created_at[lte]": until,
+        });
+        const orders = status ? res.orders.filter((o) => o.status === status) : res.orders;
+        const text =
+          `${orders.length} order(s) (of ${res.total_count} matching the date/campaign filters):\n` +
+          orders.map(orderLine).join("\n");
+        return result(text, { total_count: res.total_count, orders });
+      }),
   );
 
   server.registerTool(
@@ -202,13 +249,20 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
     {
       title: "Get order",
       description: "Get one order with its status, payment and rewards.",
-      inputSchema: z.object({ id: z.string().describe("Tremendous order ID. To find an order by external_id, use list_orders with external_id.") }),
+      inputSchema: z.object({
+        id: z
+          .string()
+          .describe("Tremendous order ID. To find an order by external_id, use list_orders with external_id."),
+      }),
       annotations: RO,
     },
-    ({ id }) => guard(async () => {
-      const { order } = await ctx.client.get<{ order: Order }>(`/orders/${encodeURIComponent(id)}`);
-      return result([orderLine(order), ...(order.rewards ?? []).map((r) => `  ${rewardLine(r)}`)].join("\n"), { order });
-    }),
+    ({ id }) =>
+      guard(async () => {
+        const { order } = await ctx.client.get<{ order: Order }>(`/orders/${encodeURIComponent(id)}`);
+        return result([orderLine(order), ...(order.rewards ?? []).map((r) => `  ${rewardLine(r)}`)].join("\n"), {
+          order,
+        });
+      }),
   );
 
   server.registerTool(
@@ -219,10 +273,11 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
       inputSchema: z.object({ id: z.string() }),
       annotations: RO,
     },
-    ({ id }) => guard(async () => {
-      const { reward } = await ctx.client.get<{ reward: Reward }>(`/rewards/${encodeURIComponent(id)}`);
-      return result(rewardLine(reward), { reward });
-    }),
+    ({ id }) =>
+      guard(async () => {
+        const { reward } = await ctx.client.get<{ reward: Reward }>(`/rewards/${encodeURIComponent(id)}`);
+        return result(rewardLine(reward), { reward });
+      }),
   );
 
   registerAppTool(
@@ -247,18 +302,30 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
       annotations: RO,
       _meta: { ui: { resourceUri: REWARDS_VIEW } },
     },
-    (args) => guard(async () => {
-      const r = await queryRewards(ctx.client, args);
-      const lines = [
-        `${envLabel(ctx)} · ${r.rows.length} reward(s) to ${r.recipients.length} recipient(s), total ${fmtTotals(r.totals)}.`,
-        `Scanned ${r.scanned} of ${r.total_available} ${r.source}.${r.truncated ? ` Truncated: call again with offset=${r.next_offset}.` : ""}`,
-        ...r.recipients.slice(0, 50).map((s) => `- ${s.name ? `${s.name} <${s.email ?? s.recipient}>` : s.recipient}: ${s.rewards} reward(s), ${fmtTotals(s.totals)}, last ${s.last_at?.slice(0, 10) ?? "?"}`),
-        r.recipients.length > 50 ? `… ${r.recipients.length - 50} more recipient(s) in structured data.` : "",
-      ].filter(Boolean);
-      // Keep the structured payload bounded; the summary above covers every match.
-      const rows = r.rows.slice(0, MAX_ROWS);
-      return result(lines.join("\n"), { environment: envLabel(ctx), filters: args, ...r, rows, rows_omitted: r.rows.length - rows.length });
-    }),
+    (args) =>
+      guard(async () => {
+        const r = await queryRewards(ctx.client, args);
+        const lines = [
+          `${envLabel(ctx)} · ${r.rows.length} reward(s) to ${r.recipients.length} recipient(s), total ${fmtTotals(r.totals)}.`,
+          `Scanned ${r.scanned} of ${r.total_available} ${r.source}.${r.truncated ? ` Truncated: call again with offset=${r.next_offset}.` : ""}`,
+          ...r.recipients
+            .slice(0, 50)
+            .map(
+              (s) =>
+                `- ${s.name ? `${s.name} <${s.email ?? s.recipient}>` : s.recipient}: ${s.rewards} reward(s), ${fmtTotals(s.totals)}, last ${s.last_at?.slice(0, 10) ?? "?"}`,
+            ),
+          r.recipients.length > 50 ? `… ${r.recipients.length - 50} more recipient(s) in structured data.` : "",
+        ].filter(Boolean);
+        // Keep the structured payload bounded; the summary above covers every match.
+        const rows = r.rows.slice(0, MAX_ROWS);
+        return result(lines.join("\n"), {
+          environment: envLabel(ctx),
+          filters: args,
+          ...r,
+          rows,
+          rows_omitted: r.rows.length - rows.length,
+        });
+      }),
   );
 
   registerAppTool(
@@ -273,25 +340,46 @@ export function registerReadTools(server: McpServer, ctx: Ctx) {
       annotations: RO,
       _meta: { ui: { resourceUri: SEND_VIEW } },
     },
-    (draft) => guard(async () => {
-      const [funding, campaigns] = await Promise.all([fetchFundingSources(ctx), fetchCampaigns(ctx).catch(() => [])]);
-      const { errors, warnings } = validateDraft(draft);
-      if (draft.campaign_id && campaigns.length && !campaigns.some((c) => c.id === draft.campaign_id)) {
-        errors.push(`Campaign ${draft.campaign_id} does not exist in this account.`);
-      }
-      const total = draftTotal(draft);
-      const draft_id = crypto.randomUUID().slice(0, 8);
-      const campaign = campaigns.find((c) => c.id === draft.campaign_id);
-      const text = [
-        `${envLabel(ctx)} · DRAFT ${draft_id} (nothing sent yet)`,
-        `${draft.recipients.length} reward(s), total ${money(total, draft.currency_code ?? "")} via ${draft.delivery_method}, paid by ${draft.funding_source_id}` +
-          (campaign ? `, campaign "${campaign.name}"` : draft.products?.length ? `, products ${draft.products.join(",")}` : ""),
-        ...draft.recipients.map((r) => `- ${r.name ?? ""} ${r.email ?? r.phone ?? ""}: ${money(r.amount, draft.currency_code ?? "")}`.replace(/\s+/g, " ")),
-        ...errors.map((e) => `ERROR: ${e}`),
-        ...warnings.map((w) => `WARNING: ${w}`),
-        errors.length ? "Fix the errors before sending." : `To send, the user clicks Send in the form, or call send_rewards with draft_id "${draft_id}" and the same fields.`,
-      ].join("\n");
-      return result(text, { environment: envLabel(ctx), draft_id, draft, total, errors, warnings, funding_sources: funding, campaigns });
-    }),
+    (draft) =>
+      guard(async () => {
+        const [funding, campaigns] = await Promise.all([fetchFundingSources(ctx), fetchCampaigns(ctx).catch(() => [])]);
+        const { errors, warnings } = validateDraft(draft);
+        if (draft.campaign_id && campaigns.length && !campaigns.some((c) => c.id === draft.campaign_id)) {
+          errors.push(`Campaign ${draft.campaign_id} does not exist in this account.`);
+        }
+        const total = draftTotal(draft);
+        const draft_id = crypto.randomUUID().slice(0, 8);
+        const campaign = campaigns.find((c) => c.id === draft.campaign_id);
+        const text = [
+          `${envLabel(ctx)} · DRAFT ${draft_id} (nothing sent yet)`,
+          `${draft.recipients.length} reward(s), total ${money(total, draft.currency_code ?? "")} via ${draft.delivery_method}, paid by ${draft.funding_source_id}` +
+            (campaign
+              ? `, campaign "${campaign.name}"`
+              : draft.products?.length
+                ? `, products ${draft.products.join(",")}`
+                : ""),
+          ...draft.recipients.map((r) =>
+            `- ${r.name ?? ""} ${r.email ?? r.phone ?? ""}: ${money(r.amount, draft.currency_code ?? "")}`.replace(
+              /\s+/g,
+              " ",
+            ),
+          ),
+          ...errors.map((e) => `ERROR: ${e}`),
+          ...warnings.map((w) => `WARNING: ${w}`),
+          errors.length
+            ? "Fix the errors before sending."
+            : `To send, the user clicks Send in the form, or call send_rewards with draft_id "${draft_id}" and the same fields.`,
+        ].join("\n");
+        return result(text, {
+          environment: envLabel(ctx),
+          draft_id,
+          draft,
+          total,
+          errors,
+          warnings,
+          funding_sources: funding,
+          campaigns,
+        });
+      }),
   );
 }

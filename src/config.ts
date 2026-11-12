@@ -1,7 +1,8 @@
 // Non-secret settings. The environment defaults to the Tremendous sandbox
 // (testflight). Set TREMENDOUS_ENV=production to move real money.
-import { homedir } from "node:os";
+
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 /** Repository root (one level above build/ or src/). Used in setup hints. */
@@ -49,17 +50,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   };
 }
 
-export function readClientCredentials(env: NodeJS.ProcessEnv = process.env): { clientId: string; clientSecret: string } {
+export function readClientCredentials(env: NodeJS.ProcessEnv = process.env): {
+  clientId: string;
+  clientSecret: string;
+} {
   const clientId = env.TREMENDOUS_CLIENT_ID?.trim();
   const clientSecret = env.TREMENDOUS_CLIENT_SECRET?.trim();
-  const missing = [!clientId && "TREMENDOUS_CLIENT_ID", !clientSecret && "TREMENDOUS_CLIENT_SECRET"].filter(Boolean);
-  if (missing.length) {
+  if (!clientId || !clientSecret) {
+    const missing = [!clientId && "TREMENDOUS_CLIENT_ID", !clientSecret && "TREMENDOUS_CLIENT_SECRET"].filter(Boolean);
     throw new Error(
       `Missing ${missing.join(", ")}. Set them in the environment, or launch through 1Password: op run --env-file=.env.op -- node build/index.js`,
     );
   }
-  if (clientId!.startsWith("op://") || clientSecret!.startsWith("op://")) {
-    throw new Error("Client credentials are unresolved 1Password references (op://...). Launch through `op run --env-file=.env.op -- ...`.");
+  if (clientId.startsWith("op://") || clientSecret.startsWith("op://")) {
+    throw new Error(
+      "Client credentials are unresolved 1Password references (op://...). Launch through `op run --env-file=.env.op -- ...`.",
+    );
   }
-  return { clientId: clientId!, clientSecret: clientSecret! };
+  return { clientId, clientSecret };
 }

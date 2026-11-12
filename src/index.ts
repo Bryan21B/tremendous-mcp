@@ -4,7 +4,7 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { TremendousClient } from "./client.js";
 import { loadConfig, readClientCredentials } from "./config.js";
 import { createServer } from "./server.js";
-import { TokenStore, makeTokenRequester } from "./token-store.js";
+import { makeTokenRequester, TokenStore } from "./token-store.js";
 
 const config = loadConfig();
 

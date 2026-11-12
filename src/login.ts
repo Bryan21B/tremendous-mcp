@@ -7,11 +7,12 @@
 // nothing listens there. That is expected: the code is in the address bar.
 // Copy the address, come back, press Enter: the script reads the clipboard.
 // The tokens go to ~/.config/tremendous-mcp/tokens.<env>.json (0600). No token is printed.
-import { randomBytes } from "node:crypto";
+
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { loadConfig, readClientCredentials } from "./config.js";
-import { TokenStore, makeTokenRequester } from "./token-store.js";
+import { makeTokenRequester, TokenStore } from "./token-store.js";
 
 const config = loadConfig();
 const { clientId, clientSecret } = readClientCredentials();
@@ -53,12 +54,16 @@ if (!process.stdin.isTTY) {
 
 const redirectBase = config.redirectUri.split("?")[0];
 if (!pasted.startsWith(redirectBase)) {
-  console.error(`The address does not start with ${redirectBase}. Run \`npm run login\` again and copy the address of the error page.`);
+  console.error(
+    `The address does not start with ${redirectBase}. Run \`npm run login\` again and copy the address of the error page.`,
+  );
   process.exit(1);
 }
 const back = new URL(pasted);
 if (back.searchParams.get("error")) {
-  console.error(`Tremendous returned an error: ${back.searchParams.get("error")} ${back.searchParams.get("error_description") ?? ""}`);
+  console.error(
+    `Tremendous returned an error: ${back.searchParams.get("error")} ${back.searchParams.get("error_description") ?? ""}`,
+  );
   process.exit(1);
 }
 if (back.searchParams.get("state") !== state) {
@@ -66,14 +71,21 @@ if (back.searchParams.get("state") !== state) {
   process.exit(1);
 }
 const code = back.searchParams.get("code");
-if (!code) { console.error("The address has no code."); process.exit(1); }
+if (!code) {
+  console.error("The address has no code.");
+  process.exit(1);
+}
 
 console.log("Exchanging the code with Tremendous...");
 const tokens = await requestToken({ grant_type: "authorization_code", code, redirect_uri: config.redirectUri });
 await store.save(tokens);
-console.log(`Saved tokens to ${config.tokenFile} (access token expires in ${tokens.expires_in || "?"}s, scope: ${tokens.scope ?? config.scopes}).`);
+console.log(
+  `Saved tokens to ${config.tokenFile} (access token expires in ${tokens.expires_in || "?"}s, scope: ${tokens.scope ?? config.scopes}).`,
+);
 
-const res = await fetch(`${config.apiBase}/organizations`, { headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: "application/json" } });
+const res = await fetch(`${config.apiBase}/organizations`, {
+  headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: "application/json" },
+});
 if (res.ok) {
   const { organizations } = (await res.json()) as { organizations: { name: string; id: string }[] };
   console.log(`Connected to: ${organizations.map((o) => `${o.name} (${o.id})`).join(", ")}`);

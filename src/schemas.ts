@@ -14,8 +14,14 @@ export const RewardDraftInput = z.object({
   recipients: z.array(RecipientInput).min(1).max(100),
   currency_code: z.string().length(3).optional().describe("ISO 4217, e.g. EUR. Defaults to the organization currency."),
   campaign_id: z.string().optional().describe("Tremendous campaign ID. Either campaign_id or products is required."),
-  products: z.array(z.string()).optional().describe("Product IDs the recipient can choose from. Overrides the campaign's products."),
-  funding_source_id: z.string().default("BALANCE").describe("Funding source ID, or BALANCE / INVOICE / INVOICE_THEN_BALANCE."),
+  products: z
+    .array(z.string())
+    .optional()
+    .describe("Product IDs the recipient can choose from. Overrides the campaign's products."),
+  funding_source_id: z
+    .string()
+    .default("BALANCE")
+    .describe("Funding source ID, or BALANCE / INVOICE / INVOICE_THEN_BALANCE."),
   delivery_method: DeliveryMethod.default("EMAIL"),
   deliver_at: z.string().optional().describe("YYYY-MM-DD, within the next year. Delivered at 12pm org time."),
   language: z.string().length(2).optional(),
@@ -33,7 +39,8 @@ export function validateDraft(d: RewardDraft): { errors: string[]; warnings: str
   d.recipients.forEach((r, i) => {
     const who = r.email ?? r.phone ?? r.name ?? `#${i + 1}`;
     if (d.delivery_method === "EMAIL" && !r.email) problems.push(`Recipient ${who}: EMAIL delivery needs an email.`);
-    if (d.delivery_method === "PHONE" && !r.phone) problems.push(`Recipient ${who}: PHONE delivery needs a phone number.`);
+    if (d.delivery_method === "PHONE" && !r.phone)
+      problems.push(`Recipient ${who}: PHONE delivery needs a phone number.`);
     if (!r.email && !r.phone && !r.name) problems.push(`Recipient #${i + 1}: give at least a name, email or phone.`);
   });
   const seen = new Set<string>();

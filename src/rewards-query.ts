@@ -85,7 +85,13 @@ export function summarize(rows: RewardRow[]): { recipients: RecipientSummary[]; 
   const totals: Record<string, number> = {};
   for (const r of rows) {
     const key = (r.recipient_email ?? r.recipient_phone ?? r.recipient_name ?? "unknown").toLowerCase();
-    const s = by.get(key) ?? { recipient: key, name: r.recipient_name, email: r.recipient_email, rewards: 0, totals: {} };
+    const s = by.get(key) ?? {
+      recipient: key,
+      name: r.recipient_name,
+      email: r.recipient_email,
+      rewards: 0,
+      totals: {},
+    };
     s.rewards++;
     const cur = r.currency ?? "?";
     if (typeof r.amount === "number") {
@@ -136,10 +142,26 @@ export async function queryRewards(client: TremendousClient, f: RewardFilters): 
 
     const exhausted = pageSize < limit || offset >= totalAvailable;
     if (exhausted) {
-      return { source: useOrders ? "orders" : "rewards", rows, ...summarize(rows), scanned, total_available: totalAvailable, next_offset: null, truncated: false };
+      return {
+        source: useOrders ? "orders" : "rewards",
+        rows,
+        ...summarize(rows),
+        scanned,
+        total_available: totalAvailable,
+        next_offset: null,
+        truncated: false,
+      };
     }
     if (scanned >= maxScan) {
-      return { source: useOrders ? "orders" : "rewards", rows, ...summarize(rows), scanned, total_available: totalAvailable, next_offset: offset, truncated: true };
+      return {
+        source: useOrders ? "orders" : "rewards",
+        rows,
+        ...summarize(rows),
+        scanned,
+        total_available: totalAvailable,
+        next_offset: offset,
+        truncated: true,
+      };
     }
   }
 }

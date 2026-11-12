@@ -7,12 +7,21 @@ const res = (status: number, body: unknown = {}, headers: Record<string, string>
 function client(responses: Response[]) {
   const seen: string[] = [];
   const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-    seen.push(String((init?.headers as Record<string, string>).Authorization));
+    seen.push(String((init?.headers as Record<string, string> | undefined)?.Authorization));
     return responses.shift()!;
   });
-  const tokens = { getAccessToken: vi.fn(async () => "old"), refresh: vi.fn(async () => ({ access_token: "new", refresh_token: "r", created_at: 0, expires_in: 0 })) };
+  const tokens = {
+    getAccessToken: vi.fn(async () => "old"),
+    refresh: vi.fn(async () => ({ access_token: "new", refresh_token: "r", created_at: 0, expires_in: 0 })),
+  };
   const sleep = vi.fn(async () => {});
-  return { c: new TremendousClient("https://x.test/api/v2", tokens, fetchImpl as unknown as typeof fetch, sleep), seen, tokens, sleep, fetchImpl };
+  return {
+    c: new TremendousClient("https://x.test/api/v2", tokens, fetchImpl as unknown as typeof fetch, sleep),
+    seen,
+    tokens,
+    sleep,
+    fetchImpl,
+  };
 }
 
 describe("TremendousClient", () => {

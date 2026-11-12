@@ -2,10 +2,15 @@ import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { NotLoggedInError, TokenStore, isExpired, type StoredTokens } from "../src/token-store.js";
+import { isExpired, NotLoggedInError, type StoredTokens, TokenStore } from "../src/token-store.js";
 
 const now = () => Math.floor(Date.now() / 1000);
-const tokens = (n: number, expired = false): StoredTokens => ({ access_token: `a${n}`, refresh_token: `r${n}`, created_at: expired ? now() - 10_000 : now(), expires_in: 7200 });
+const tokens = (n: number, expired = false): StoredTokens => ({
+  access_token: `a${n}`,
+  refresh_token: `r${n}`,
+  created_at: expired ? now() - 10_000 : now(),
+  expires_in: 7200,
+});
 
 async function setup(initial?: StoredTokens) {
   const dir = await mkdtemp(join(tmpdir(), "trem-"));

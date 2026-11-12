@@ -22,17 +22,28 @@ export function explainError(status: number, body: unknown): string {
   const errors = (body as { errors?: { message?: string; payload?: unknown } } | undefined)?.errors;
   const detail = errors?.message
     ? `${errors.message}${errors.payload ? ` ${JSON.stringify(errors.payload)}` : ""}`
-    : typeof body === "string" ? body.slice(0, 300) : JSON.stringify(body ?? "").slice(0, 300);
+    : typeof body === "string"
+      ? body.slice(0, 300)
+      : JSON.stringify(body ?? "").slice(0, 300);
   switch (status) {
-    case 400: return `Tremendous rejected the request (400 validation error): ${detail}`;
-    case 401: return `Tremendous refused the credentials (401). Run \`npm run login\` again. ${detail}`;
-    case 402: return `Insufficient funds on the funding source (402): ${detail}`;
-    case 403: return `Not allowed (403). Your Tremendous role or OAuth scope does not permit this: ${detail}`;
-    case 404: return `Not found (404): ${detail}`;
-    case 409: return `Conflict (409): an order with this external_id already exists with different parameters. ${detail}`;
-    case 422: return `Tremendous cannot do this for this object (422): ${detail}`;
-    case 429: return `Rate limited by Tremendous (429). Try again in a minute.`;
-    default: return `Tremendous API error ${status}: ${detail}`;
+    case 400:
+      return `Tremendous rejected the request (400 validation error): ${detail}`;
+    case 401:
+      return `Tremendous refused the credentials (401). Run \`npm run login\` again. ${detail}`;
+    case 402:
+      return `Insufficient funds on the funding source (402): ${detail}`;
+    case 403:
+      return `Not allowed (403). Your Tremendous role or OAuth scope does not permit this: ${detail}`;
+    case 404:
+      return `Not found (404): ${detail}`;
+    case 409:
+      return `Conflict (409): an order with this external_id already exists with different parameters. ${detail}`;
+    case 422:
+      return `Tremendous cannot do this for this object (422): ${detail}`;
+    case 429:
+      return `Rate limited by Tremendous (429). Try again in a minute.`;
+    default:
+      return `Tremendous API error ${status}: ${detail}`;
   }
 }
 
@@ -85,7 +96,11 @@ export class TremendousClient {
       }
       const text = await res.text();
       let parsed: unknown = text;
-      try { parsed = text ? JSON.parse(text) : {}; } catch { /* keep text */ }
+      try {
+        parsed = text ? JSON.parse(text) : {};
+      } catch {
+        /* keep text */
+      }
       if (!res.ok) throw new TremendousError(res.status, explainError(res.status, parsed), parsed);
       return { status: res.status, data: parsed as T };
     }

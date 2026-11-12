@@ -4,14 +4,39 @@ import { $, createApp, el, money, resultText } from "./common";
 
 type Recipient = { name?: string; email?: string; phone?: string; amount: number };
 type Draft = {
-  recipients: Recipient[]; currency_code?: string; campaign_id?: string; products?: string[];
-  funding_source_id: string; delivery_method: "EMAIL" | "PHONE" | "LINK"; deliver_at?: string;
-  language?: string; sender_name?: string; subject_line?: string; message?: string;
+  recipients: Recipient[];
+  currency_code?: string;
+  campaign_id?: string;
+  products?: string[];
+  funding_source_id: string;
+  delivery_method: "EMAIL" | "PHONE" | "LINK";
+  deliver_at?: string;
+  language?: string;
+  sender_name?: string;
+  subject_line?: string;
+  message?: string;
 };
 type Funding = { id: string; label: string; method: string };
 type Campaign = { id: string; name: string };
-type Payload = { environment: string; draft_id: string; draft: Draft; errors: string[]; warnings: string[]; funding_sources: Funding[]; campaigns: Campaign[] };
-type SendRow = { index: number; recipient: string; amount: number; outcome: string; order_id?: string; order_status?: string; link?: string; error?: string };
+type Payload = {
+  environment: string;
+  draft_id: string;
+  draft: Draft;
+  errors: string[];
+  warnings: string[];
+  funding_sources: Funding[];
+  campaigns: Campaign[];
+};
+type SendRow = {
+  index: number;
+  recipient: string;
+  amount: number;
+  outcome: string;
+  order_id?: string;
+  order_status?: string;
+  link?: string;
+  error?: string;
+};
 
 const { app, connect } = createApp("tremendous-send");
 let payload: Payload;
@@ -35,7 +60,12 @@ function readForm(): Draft {
     message: opt($<HTMLTextAreaElement>("message").value),
     deliver_at: opt(input("deliver_at").value),
     recipients: draft.recipients
-      .map((r) => ({ name: r.name?.trim() || undefined, email: r.email?.trim() || undefined, phone: r.phone?.trim() || undefined, amount: Number(r.amount) }))
+      .map((r) => ({
+        name: r.name?.trim() || undefined,
+        email: r.email?.trim() || undefined,
+        phone: r.phone?.trim() || undefined,
+        amount: Number(r.amount),
+      }))
       .filter((r) => r.name || r.email || r.phone),
   };
 }
@@ -76,19 +106,39 @@ function refresh() {
 function renderRecipients() {
   const phone = $<HTMLSelectElement>("delivery").value === "PHONE";
   const t = $("recipients");
-  t.replaceChildren(el("tr", {}, ...["Name", phone ? "Phone" : "Email", "Amount", ""].map((h) => el("th", { textContent: h }))));
+  t.replaceChildren(
+    el("tr", {}, ...["Name", phone ? "Phone" : "Email", "Amount", ""].map((h) => el("th", { textContent: h }))),
+  );
   draft.recipients.forEach((r, i) => {
     const field = (key: "name" | "email" | "phone", type = "text") => {
       const f = el("input", { type, value: (r[key] as string | undefined) ?? "" });
       f.style.width = "100%";
-      f.oninput = () => { r[key] = f.value; refresh(); };
+      f.oninput = () => {
+        r[key] = f.value;
+        refresh();
+      };
       return f;
     };
     const amount = el("input", { type: "number", min: "0", step: "0.01", value: String(r.amount ?? "") });
-    amount.oninput = () => { r.amount = Number(amount.value); refresh(); };
+    amount.oninput = () => {
+      r.amount = Number(amount.value);
+      refresh();
+    };
     const del = el("button", { type: "button", className: "link", textContent: "Remove" });
-    del.onclick = () => { draft.recipients.splice(i, 1); renderRecipients(); };
-    t.append(el("tr", {}, el("td", {}, field("name")), el("td", {}, phone ? field("phone", "tel") : field("email", "email")), el("td", { className: "num" }, amount), el("td", {}, del)));
+    del.onclick = () => {
+      draft.recipients.splice(i, 1);
+      renderRecipients();
+    };
+    t.append(
+      el(
+        "tr",
+        {},
+        el("td", {}, field("name")),
+        el("td", {}, phone ? field("phone", "tel") : field("email", "email")),
+        el("td", { className: "num" }, amount),
+        el("td", {}, del),
+      ),
+    );
   });
   refresh();
 }
@@ -99,12 +149,21 @@ function showResults(rows: SendRow[], text: string) {
   $("summary").textContent = text.split("\n")[0];
   $("result-table").replaceChildren(
     el("tr", {}, ...["Recipient", "Amount", "Result", "Order"].map((h) => el("th", { textContent: h }))),
-    ...rows.map((r) => el("tr", {},
-      el("td", { textContent: r.recipient }),
-      el("td", { className: "num", textContent: money(r.amount, draft.currency_code ?? "") }),
-      el("td", {}, el("span", { className: `pill ${r.outcome}`, textContent: r.outcome.replace("_", " ") }), r.error ? el("div", { className: "sub", textContent: r.error }) : null),
-      el("td", { className: "sub", textContent: r.order_id ? `${r.order_id} · ${r.order_status}` : "" }),
-    )),
+    ...rows.map((r) =>
+      el(
+        "tr",
+        {},
+        el("td", { textContent: r.recipient }),
+        el("td", { className: "num", textContent: money(r.amount, draft.currency_code ?? "") }),
+        el(
+          "td",
+          {},
+          el("span", { className: `pill ${r.outcome}`, textContent: r.outcome.replace("_", " ") }),
+          r.error ? el("div", { className: "sub", textContent: r.error }) : null,
+        ),
+        el("td", { className: "sub", textContent: r.order_id ? `${r.order_id} · ${r.order_status}` : "" }),
+      ),
+    ),
   );
 }
 
@@ -125,20 +184,34 @@ async function send() {
     const sc = res.structuredContent as { rows?: SendRow[] } | undefined;
     if (sc?.rows) {
       showResults(sc.rows, resultText(res));
-      await app.updateModelContext({ content: [{ type: "text", text: `The user sent draft ${payload.draft_id} from the form. Result:\n${resultText(res)}` }] });
+      await app.updateModelContext({
+        content: [
+          { type: "text", text: `The user sent draft ${payload.draft_id} from the form. Result:\n${resultText(res)}` },
+        ],
+      });
     } else {
-      $("problems").replaceChildren(el("div", { className: "msg error", textContent: resultText(res) || "Send failed." }));
+      $("problems").replaceChildren(
+        el("div", { className: "msg error", textContent: resultText(res) || "Send failed." }),
+      );
       refresh();
     }
   } catch (e) {
-    $("problems").replaceChildren(el("div", { className: "msg error", textContent: `Send failed: ${(e as Error).message}. Sending again with the same draft is safe (no double payment).` }));
+    $("problems").replaceChildren(
+      el("div", {
+        className: "msg error",
+        textContent: `Send failed: ${(e as Error).message}. Sending again with the same draft is safe (no double payment).`,
+      }),
+    );
     btn.disabled = false;
     btn.textContent = "Retry send";
   }
 }
 
 app.ontoolresult = (params) => {
-  if (params.isError) { $("loading").textContent = resultText(params); return; }
+  if (params.isError) {
+    $("loading").textContent = resultText(params);
+    return;
+  }
   const p = params.structuredContent as Payload | undefined;
   if (!p?.draft) return;
   payload = p;
@@ -148,16 +221,28 @@ app.ontoolresult = (params) => {
   $("draft").textContent = `draft ${p.draft_id}`;
 
   const camp = $<HTMLSelectElement>("campaign");
-  camp.replaceChildren(el("option", { value: "", textContent: "Choose…" }),
-    ...(draft.products?.length ? [el("option", { value: `products:${draft.products.join(",")}`, textContent: `Products: ${draft.products.join(", ")}` })] : []),
-    ...p.campaigns.map((c) => el("option", { value: c.id, textContent: c.name })));
+  camp.replaceChildren(
+    el("option", { value: "", textContent: "Choose…" }),
+    ...(draft.products?.length
+      ? [
+          el("option", {
+            value: `products:${draft.products.join(",")}`,
+            textContent: `Products: ${draft.products.join(", ")}`,
+          }),
+        ]
+      : []),
+    ...p.campaigns.map((c) => el("option", { value: c.id, textContent: c.name })),
+  );
   camp.value = draft.campaign_id ?? (draft.products?.length ? `products:${draft.products.join(",")}` : "");
 
   const fund = $<HTMLSelectElement>("funding");
   const known = new Set(p.funding_sources.map((f) => f.id));
   fund.replaceChildren(
-    ...(known.has(draft.funding_source_id) ? [] : [el("option", { value: draft.funding_source_id, textContent: draft.funding_source_id })]),
-    ...p.funding_sources.map((f) => el("option", { value: f.id, textContent: f.label })));
+    ...(known.has(draft.funding_source_id)
+      ? []
+      : [el("option", { value: draft.funding_source_id, textContent: draft.funding_source_id })]),
+    ...p.funding_sources.map((f) => el("option", { value: f.id, textContent: f.label })),
+  );
   fund.value = draft.funding_source_id;
 
   $<HTMLSelectElement>("delivery").value = draft.delivery_method;
@@ -172,8 +257,17 @@ app.ontoolresult = (params) => {
   renderRecipients();
 };
 
-$("form").addEventListener("submit", (e) => { e.preventDefault(); void send(); });
-$("form").addEventListener("change", (e) => { if ((e.target as HTMLElement).id === "delivery") renderRecipients(); else refresh(); });
-$("add").onclick = () => { draft.recipients.push({ amount: draft.recipients.at(-1)?.amount ?? 0 }); renderRecipients(); };
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  void send();
+});
+$("form").addEventListener("change", (e) => {
+  if ((e.target as HTMLElement).id === "delivery") renderRecipients();
+  else refresh();
+});
+$("add").onclick = () => {
+  draft.recipients.push({ amount: draft.recipients.at(-1)?.amount ?? 0 });
+  renderRecipients();
+};
 
 await connect();
