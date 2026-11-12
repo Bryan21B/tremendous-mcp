@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1](https://github.com/Bryan21B/tremendous-mcp/compare/v0.1.0...v0.1.1) (2026-11-12)
+
+### Bug Fixes
+
+* **login:** keep asking for the callback address and explain what was copied ([5304bab](https://github.com/Bryan21B/tremendous-mcp/commit/5304bab1bb56dcac74117ed6001b7358397ea614))
+
 ## 0.1.0 (2026-11-12)
 
 ### Features
